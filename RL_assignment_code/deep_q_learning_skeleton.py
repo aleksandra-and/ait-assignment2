@@ -28,15 +28,31 @@ class ReplayMemory(object):
     # ReplayMemory should store the last "size" experiences
     # and be able to return a randomly sampled batch of experiences
     def __init__(self, size):
-        pass #<- TODO: you need to modify this
+        self.size = size
+        self.memory = []
 
     # Store experience in memory
     def store_experience(self, prev_obs, action, observation, reward, done):
-        pass #<- TODO: you need to modify this
+        self.memory.append((prev_obs, action, observation, reward, done))
+        if len(self.memory) > self.size:
+            self.memory.pop(0)
 
     # Randomly sample "batch_size" experiences from the memory and return them
     def sample_batch(self, batch_size):
-        pass #<- TODO: you need to modify this
+        actual_size = min(batch_size, len(self.memory))
+        batch = random.sample(self.memory, actual_size)
+        prev_obs = []
+        actions = []
+        obs = []
+        rewards = []
+        dones = []
+        for mem in batch:
+            prev_obs.append(mem[0])
+            actions.append(mem[1])
+            obs.append(mem[2])
+            rewards.append(mem[3])
+            dones.append(mem[4])
+        return np.array(prev_obs), np.array(actions), np.array(obs), np.array(rewards), np.array(dones)
 
 
 # DEBUG=True
@@ -239,9 +255,12 @@ class QLearner(object):
         self.last_obs = observation
 
         # TODO coding exercise 3: Do a batch update using experience stored in the replay memory
-        # if self.tot_stages > 10 * self.batch_size:
+        self.rm.store_experience(prev_observation, action, observation, reward, done)
+        if self.tot_stages > 10 * self.batch_size:
             # sample a batch of batch_size from the replay memory
             # and update the network using this batch (batch_Q_update)
+            batch = self.rm.sample_batch(self.batch_size)
+            self.Q.batch_Q_update(*batch)
 
 
     def select_action(self):
