@@ -116,7 +116,7 @@ class QNet(nn.Module):
 
         return q
 
-    def single_Q_update(self, prev_observation, action, observation, reward, done):
+    def single_Q_update(self, prev_observation, action, observation, reward, done, target_network=None):
         """ action and observation need to be in the format that QNet was constructed for.
             I.e., if observation is a discrete variable (with say N values=states), but QNet
             is working on one-hot vectors (of length N), then observation needs to be such a
@@ -130,7 +130,10 @@ class QNet(nn.Module):
         if done:
             future_val = 0 
         else:
-            future_val = self.max_Q_value(t_observation)        ##<<- this evaluates the QNet
+            if target_network is not None:
+                future_val = target_network.max_Q_value(t_observation)        ##<<- this evaluates the QNet
+            else:
+                future_val = self.max_Q_value(t_observation)  ##<<- this evaluates the QNet
         # We just evaluated the Qnet for the next-stage variables, but of course... the effect of the Qnet 
         # parameters on the *next-stage* value is ignored by Q-learning. 
         # (residual gradient algorithms do takes this into account, but 
@@ -160,10 +163,13 @@ class QNet(nn.Module):
         debug_utils.debug_q_update(prev_observation, action, observation, reward, done, predict, self.discount, future_val,
                                    target, td, new_q)
 
-    def batch_Q_update(self, obs, actions, next_obs, rewards, dones):
+    def batch_Q_update(self, obs, actions, next_obs, rewards, dones, target_network=None):
 
         batch_size = len(dones)
-        v_next_obs = self.max_Q_value(next_obs, batch_size)
+        if target_network is not None:
+            v_next_obs = target_network.max_Q_value(next_obs, batch_size)
+        else:
+            v_next_obs = self.max_Q_value(next_obs, batch_size)
         not_dones = 1 - dones
         fut_values = self.discount * v_next_obs * not_dones
         targets = rewards + fut_values
@@ -215,11 +221,12 @@ class QNet_MLP(QNet):
 
 
 class QLearner(object):
-    def __init__(self, env, q_function, discount=DEFAULT_DISCOUNT, rm_size=RMSIZE):
+    def __init__(self, env, q_function, target_network=None, discount=DEFAULT_DISCOUNT, rm_size=RMSIZE):
         self.env = env
         self.Q = q_function
         self.rm = ReplayMemory(rm_size)  # replay memory stores (a subset of) experience across episode
         self.discount = discount
+        self.target_network = target_network
 
         self.epsilon = EPSILON
         self.epsilon_min = .01
@@ -251,7 +258,7 @@ class QLearner(object):
         self.cum_r += reward
         self.dis_r += reward * (self.discount ** self.stage)
         self.stage += 1
-        self.Q.single_Q_update(prev_observation, action, observation, reward, done)
+        self.Q.single_Q_update(prev_observation, action, observation, reward, done, self.target_network)
         self.last_obs = observation
 
         # TODO coding exercise 3: Do a batch update using experience stored in the replay memory
@@ -260,7 +267,7 @@ class QLearner(object):
             # sample a batch of batch_size from the replay memory
             # and update the network using this batch (batch_Q_update)
             batch = self.rm.sample_batch(self.batch_size)
-            self.Q.batch_Q_update(*batch)
+            self.Q.batch_Q_update(*batch, self.target_network)
 
 
     def select_action(self):
@@ -297,3 +304,7 @@ class QLearner(object):
         print("%s: mean r in this episode:  %s" % (name, mean_r_this_ep))
         print("%s: mean r in lifetime:      %s" % (name, mean_r))
         print("%s: mean return per episode:   %s" % (name, mean_r_ep))
+
+    def update_target_network(self):
+        if self.target_network is not None:
+            self.target_network.load_state_dict(self.Q.state_dict())
