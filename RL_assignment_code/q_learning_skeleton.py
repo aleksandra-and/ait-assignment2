@@ -1,4 +1,5 @@
 import random
+import numpy as np
 
 NUM_EPISODES = 1000
 MAX_EPISODE_LENGTH = 500
@@ -53,8 +54,8 @@ class QLearner():
 
         for a in self.Q[next_state]:
             Q_max = max(Q_max, self.Q[next_state][a])
-        if state == next_state:
-            reward = -5
+        # if state == next_state:
+        #     reward = -5
         self.Q[state][action] = (1 - self.learning_rate)*self.Q[state][action] + \
                                 self.learning_rate * (reward + self.discount*Q_max)
         if done:
@@ -89,11 +90,23 @@ class QLearner():
         """
         Function to print useful information, printed during the main loop
         """
+        Q = np.zeros((self.num_states, self.num_actions))
         for s in range(self.num_states):
-            print("-------- \n state = ", s)
             for a in range(self.num_actions):
-                print("a: ", a, " Q = ", self.Q[s][a], end = ' | ')
-            print()
+                Q[s][a] = self.Q[s][a]
+        print(Q)
+        for i, row in enumerate(Q):
+            maximum = max(row)
+            # wonderful piece of code to convert the row into a latex table string
+            row_string = ' & '.join(
+                [str(i), *['{:.2e}'.format(q) if q != maximum else '\\textbf{' + '{:.2e}'.format(q) + '}' for q in row]])
+            print(row_string + ' \\\\')
+
+        # for s in range(self.num_states):
+        #     print("-------- \n state = ", s)
+        #     for a in range(self.num_actions):
+        #         print("a: ", a, " Q = ", self.Q[s][a], end = ' | ')
+        #     print()
 
 
 

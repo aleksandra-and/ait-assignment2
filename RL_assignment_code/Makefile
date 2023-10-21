@@ -26,6 +26,13 @@ run_ql:
 			-it --rm $(IMAGE_NAME):$(TAG) \
 			python3 q_learning_main.py
 
+run_vi:
+	docker run \
+			--mount type=bind,source="$(shell pwd)",target=/workspace \
+			--workdir "/workspace" \
+			-it --rm $(IMAGE_NAME):$(TAG) \
+			python3 value_iteration.py
+
 clean:
 	if [ -d "./__pycache__" ]; \
 	then docker run \
